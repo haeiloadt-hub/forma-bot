@@ -18,6 +18,9 @@ const QUEUE_CHANNEL_ID = "1514597081296142489";
 
 let queue = [];
 
+const MATCH_CATEGORY_ID =
+"1514598179507535945";
+
 client.once("ready", async () => {
   console.log(`Logged in as ${client.user.tag}`);
 
@@ -65,6 +68,14 @@ client.on(
       });
     }
 
+    if (queue.length >= 10) {
+
+  await createMatch(
+    interaction.guild
+  );
+
+}
+
     if (interaction.customId === "leave") {
       queue = queue.filter(
         id => id !== interaction.user.id
@@ -77,5 +88,31 @@ client.on(
     }
   }
 );
+
+async function createMatch(guild) {
+
+  const players = [...queue];
+
+  queue = [];
+
+  const host =
+    players[Math.floor(Math.random() * players.length)];
+
+  const channel = await guild.channels.create({
+    name: `match-${Date.now()}`,
+    parent: MATCH_CATEGORY_ID
+  });
+
+  await channel.send(`
+🎮 MATCH CREATED
+
+Host:
+<@${host}>
+
+Players:
+
+${players.map(id => `<@${id}>`).join("\n")}
+`);
+}
 
 client.login(process.env.TOKEN);
