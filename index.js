@@ -7,7 +7,8 @@ const {
   ButtonBuilder,
   ButtonStyle,
   EmbedBuilder,
-  Events
+  Events,
+  ChannelType
 } = require("discord.js");
 
 const client = new Client({
@@ -15,11 +16,10 @@ const client = new Client({
 });
 
 const QUEUE_CHANNEL_ID = "1514597081296142489";
+const MATCH_CATEGORY_ID = "1514598179507535945";
 
 let queue = [];
-
-const MATCH_CATEGORY_ID =
-"1514598179507535945";
+let queueMessage = null;
 
 client.once("ready", async () => {
   console.log(`Logged in as ${client.user.tag}`);
@@ -31,7 +31,7 @@ client.once("ready", async () => {
   const embed = new EmbedBuilder()
     .setTitle("🎮 FORMA Matchmaking")
     .setDescription(
-      "Queue Size: 0/10\n\nClick Join Queue to play."
+      `Queue Size: ${queue.length}/10\n\nClick Join Queue to play.`
     );
 
   const row = new ActionRowBuilder().addComponents(
@@ -46,7 +46,7 @@ client.once("ready", async () => {
       .setStyle(ButtonStyle.Danger)
   );
 
-  await channel.send({
+  queueMessage = await channel.send({
     embeds: [embed],
     components: [row]
   });
@@ -58,25 +58,30 @@ client.on(
     if (!interaction.isButton()) return;
 
     if (interaction.customId === "join") {
-      if (!queue.includes(interaction.user.id)) {
-        queue.push(interaction.user.id);
+
+      if (queue.includes(interaction.user.id)) {
+        return interaction.reply({
+          content: "You are already in the queue.",
+          ephemeral: true
+        });
       }
+
+      queue.push(interaction.user.id);
 
       await interaction.reply({
         content: `Joined Queue (${queue.length}/10)`,
         ephemeral: true
       });
+
+      await updateQueueMessage();
+
+      if (queue.length >= 10) {
+        await createMatch(interaction.guild);
+      }
     }
 
-    if (queue.length >= 10) {
-
-  await createMatch(
-    interaction.guild
-  );
-
-}
-
     if (interaction.customId === "leave") {
+
       queue = queue.filter(
         id => id !== interaction.user.id
       );
@@ -85,9 +90,26 @@ client.on(
         content: "You left the queue.",
         ephemeral: true
       });
+
+      await updateQueueMessage();
     }
   }
 );
+
+async function updateQueueMessage() {
+
+  if (!queueMessage) return;
+
+  const embed = new EmbedBuilder()
+    .setTitle("🎮 FORMA Matchmaking")
+    .setDescription(
+      `Queue Size: ${queue.length}/10\n\nClick Join Queue to play.`
+    );
+
+  await queueMessage.edit({
+    embeds: [embed]
+  });
+}
 
 async function createMatch(guild) {
 
@@ -95,13 +117,21 @@ async function createMatch(guild) {
 
   queue = [];
 
-  const host =
-    players[Math.floor(Math.random() * players.length)];
+  await updateQueueMessage();
 
-  const channel = await guild.channels.create({
-    name: `match-${Date.now()}`,
-    parent: MATCH_CATEGORY_ID
-  });
+  const host =
+    players[
+      Math.floor(
+        Math.random() * players.length
+      )
+    ];
+
+  const channel =
+    await guild.channels.create({
+      name: `match-${Date.now()}`,
+      type: ChannelType.GuildText,
+      parent: MATCH_CATEGORY_ID
+    });
 
   await channel.send(`
 🎮 MATCH CREATED
